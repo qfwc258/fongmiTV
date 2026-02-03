@@ -7,20 +7,19 @@ on:
 
 env:
   JAVA_VERSION: '17'
-  ANDROID_BUILD_TOOLS: '34.0.0'
   PYTHON_VERSION: '3.10.13'
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # 设置30分钟超时
+    timeout-minutes: 30
     
     steps:
-    # 第一步：检出代码（从您的fongmi分支）
+    # 第一步：检出代码
     - name: Checkout fongmi branch
       uses: actions/checkout@v4
       with:
-        ref: fongmi  # 明确指定分支
+        ref: fongmi
         submodules: recursive
         fetch-depth: 0
 
@@ -31,21 +30,27 @@ jobs:
         distribution: 'temurin'
         java-version: ${{ env.JAVA_VERSION }}
 
-    # 第三步：安装Python 3.10（关键步骤，解决Chaquopy问题）
+    # 第三步：安装Python 3.10
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    # 第四步：设置Android SDK
+    # 第四步：设置Android SDK（使用新的参数格式）
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        build-tools-version: ${{ env.ANDROID_BUILD_TOOLS }}
-        cmdline-tools-version: 'latest'
-        ndk-version: '25.2.9519653'
+        # 新版本只支持以下参数：
+        # 1. 安装指定SDK包
+        packages: |
+          platform-tools
+          build-tools;34.0.0
+          platforms;android-34
+          ndk;25.2.9519653
+        # 2. 接受许可
+        accept-android-sdk-licenses: true
 
-    # 第五步：缓存Gradle依赖，加速编译
+    # 第五步：缓存Gradle依赖
     - name: Cache Gradle dependencies
       uses: actions/cache@v3
       with:
@@ -70,36 +75,37 @@ jobs:
         echo "Java版本:"
         java -version
         echo ""
-        echo "Gradle版本:"
-        ./gradlew --version
+        echo "Android SDK工具版本:"
+        sdkmanager --list 2>/dev/null | grep -E "(build-tools|platforms|ndk)" || true
 
-    # 第八步：编译APK（关键：忽略Gradle警告）
+    # 第八步：编译APK
     - name: Build Release APK
       env:
         ORG_GRADLE_PROJECT_pythonVersion: "3.10"
         ORG_GRADLE_PROJECT_buildPython: python3.10
       run: |
         echo "开始编译APK..."
-        ./gradlew clean assembleRelease --warning-mode none
+        # 添加详细日志，忽略警告
+        ./gradlew clean assembleRelease --warning-mode none --info
         echo "编译完成！"
 
-    # 第九步：查找生成的APK文件
-    - name: Find and list APK files
+    # 第九步：查找APK文件
+    - name: Find APK files
       run: |
-        echo "=== 搜索APK文件 ==="
-        find . -name "*.apk" -type f 2>/dev/null || echo "未找到APK文件"
+        echo "=== 查找APK文件 ==="
+        find app/build/outputs -name "*.apk" -type f 2>/dev/null || echo "正在搜索APK文件..."
         echo ""
-        echo "=== 查看输出目录 ==="
-        ls -la app/build/outputs/apk/ 2>/dev/null || echo "apk目录不存在"
-        ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "release目录不存在"
+        echo "=== 目录结构 ==="
+        ls -la app/build/outputs/apk/ 2>/dev/null || echo "创建输出目录..."
+        ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "创建release目录..."
 
-    # 第十步：上传生成的APK文件
+    # 第十步：上传APK
     - name: Upload APK artifacts
-      if: success()  # 只有在编译成功时才上传
+      if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: fongmi-tv-apk
+        name: fongmi-tv-release
         path: |
           app/build/outputs/apk/**/*.apk
-        retention-days: 7  # 保留7天
-        if-no-files-found: warn  # 如果没找到文件，仅警告不失败
+          app/build/outputs/apk/**/*.apks
+        retention-days: 7
