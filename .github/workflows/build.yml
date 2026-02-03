@@ -36,18 +36,12 @@ jobs:
       with:
         python-version: ${{ env.PYTHON_VERSION }}
 
-    # 第四步：设置Android SDK（使用新的参数格式）
+    # 第四步：设置Android SDK - 修正格式！
     - name: Setup Android SDK
       uses: android-actions/setup-android@v3
       with:
-        # 新版本只支持以下参数：
-        # 1. 安装指定SDK包
-        packages: |
-          platform-tools
-          build-tools;34.0.0
-          platforms;android-34
-          ndk;25.2.9519653
-        # 2. 接受许可
+        # 使用单行格式，用空格分隔包名
+        packages: platform-tools build-tools;34.0.0 platforms;android-34 ndk;25.2.9519653
         accept-android-sdk-licenses: true
 
     # 第五步：缓存Gradle依赖
@@ -75,8 +69,8 @@ jobs:
         echo "Java版本:"
         java -version
         echo ""
-        echo "Android SDK工具版本:"
-        sdkmanager --list 2>/dev/null | grep -E "(build-tools|platforms|ndk)" || true
+        echo "Android SDK:"
+        sdkmanager --list_installed 2>/dev/null || true
 
     # 第八步：编译APK
     - name: Build Release APK
@@ -85,27 +79,24 @@ jobs:
         ORG_GRADLE_PROJECT_buildPython: python3.10
       run: |
         echo "开始编译APK..."
-        # 添加详细日志，忽略警告
-        ./gradlew clean assembleRelease --warning-mode none --info
+        ./gradlew clean assembleRelease --warning-mode none
         echo "编译完成！"
 
     # 第九步：查找APK文件
     - name: Find APK files
       run: |
         echo "=== 查找APK文件 ==="
-        find app/build/outputs -name "*.apk" -type f 2>/dev/null || echo "正在搜索APK文件..."
+        find . -name "*.apk" -type f 2>/dev/null || echo "搜索中..."
         echo ""
-        echo "=== 目录结构 ==="
-        ls -la app/build/outputs/apk/ 2>/dev/null || echo "创建输出目录..."
-        ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "创建release目录..."
+        echo "=== 输出目录 ==="
+        ls -la app/build/outputs/apk/ 2>/dev/null || echo "创建目录中..."
 
     # 第十步：上传APK
     - name: Upload APK artifacts
       if: success()
       uses: actions/upload-artifact@v4
       with:
-        name: fongmi-tv-release
-        path: |
-          app/build/outputs/apk/**/*.apk
-          app/build/outputs/apk/**/*.apks
+        name: fongmi-tv-apk
+        path: app/build/outputs/apk/**/*.apk
         retention-days: 7
+        if-no-files-found: warn
