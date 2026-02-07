@@ -86,8 +86,11 @@ android {
         targetCompatibility JavaVersion.VERSION_17
     }
 }
-
+repositories {
+    maven { url 'https://jitpack.io' }
+}
 dependencies {
+    implementation 'com.github.mpv-android:libmpv-android:2025-03-06'
     implementation fileTree(dir: "libs", include: ["*.aar"])
     implementation project(':catvod')
     implementation project(':chaquo')
